@@ -1,0 +1,12 @@
+# Node.js
+node_modules/
+.next/
+*.env
+
+# ASP.NET Core
+bin/
+obj/
+*.csproj.user
+
+# VS Code
+.vscode/
