@@ -1,0 +1,16 @@
+[
+  {
+    "id": 1,
+    "itemName": "MG ユニコーンガンダム",
+    "itemPrice": 5000,
+    "itemUrl": "https://example.com/unicorn",
+    "imageUrl": "/images/robot1_blue.jpg"
+  },
+  {
+    "id": 2,
+    "itemName": "HG ザクII",
+    "itemPrice": 1500,
+    "itemUrl": "https://example.com/zaku",
+    "imageUrl": "/images/robot1_blue.jpg"
+  }
+]
