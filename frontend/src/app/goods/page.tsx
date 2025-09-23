@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useEffect, useState } from 'react';
 
 interface GoodsItem {
-    id: number;
+    id: string;
     itemName: string;
     itemPrice: number;
     itemUrl: string;
@@ -18,22 +18,21 @@ export default function GoodsPage() {
     const [search, setSearch] = useState('');
     const limit = typeof window !== 'undefined' && window.innerWidth < 640 ? 30 : 100;
 
-    const fetchGoods = debounce(() => {
-        fetch('/data/goods.json')
-            .then(res => {
-                if (!res.ok) throw new Error('Failed to fetch goods.json');
-                return res.json();
-            })
-            .then(data => setGoods(data.filter((item: GoodsItem) =>
-                item.itemName.toLowerCase().includes(search.toLowerCase())
-            ).slice((page - 1) * limit, page * limit)))
-            .catch(err => console.error('Fetch error:', err));
+    const fetchGoods = debounce(async () => {
+        // 仮データ（後で楽天APIに切り替え）
+        const data = await fetch('/data/goods.json').then(res => res.json());
+        setGoods(data.filter((item: GoodsItem) =>
+            item.itemName.toLowerCase().includes(search.toLowerCase())
+        ).slice((page - 1) * limit, page * limit));
+        // 楽天API（コメントアウト、APIキー後で）
+        // const rakutenData = await fetchRakutenGoods(search || 'ガンプラ', page);
+        // setGoods(rakutenData.slice((page - 1) * limit, page * limit));
     }, 500);
 
     useEffect(() => {
         console.log('Goods:', goods); // デバッグ用
         fetchGoods();
-    }, [page, search]);
+    }, [page, search, fetchGoods]); // fetchGoods追加
 
     return (
         <>
@@ -60,7 +59,7 @@ export default function GoodsPage() {
                         <div key={item.id} className="bg-gray-800 border-2 border-white rounded-lg p-4 hover:scale-105 transition-transform shadow-lg">
                             <div className="relative">
                                 <Image
-                                    src={item.imageUrl || 'https://via.placeholder.com/200x200/4682B4/FFFFFF?text=Mecha'}
+                                    src={item.imageUrl}
                                     alt={item.itemName}
                                     width={200}
                                     height={200}
@@ -105,6 +104,9 @@ export default function GoodsPage() {
                         コロニー移動！
                     </button>
                 </div>
+                <footer className="text-center mt-6 text-sm text-gray-400">
+                    Images by Freepik | &copy; 2025 Side7Connect
+                </footer>
             </div>
         </>
     );
