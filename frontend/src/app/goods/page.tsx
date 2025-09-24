@@ -1,9 +1,9 @@
 'use client';
+import { fetchRakutenGoods } from '@/lib/rakuten';
 import debounce from 'lodash/debounce';
 import Head from 'next/head';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
-
 interface GoodsItem {
     id: string;
     itemName: string;
@@ -19,21 +19,21 @@ export default function GoodsPage() {
     const limit = typeof window !== 'undefined' && window.innerWidth < 640 ? 30 : 100;
 
     const fetchGoods = debounce(async () => {
-        // 仮データ（後で楽天APIに切り替え）
-        const data = await fetch('/data/goods.json').then(res => res.json());
-        setGoods(data.filter((item: GoodsItem) =>
-            item.itemName.toLowerCase().includes(search.toLowerCase())
-        ).slice((page - 1) * limit, page * limit));
-        // 楽天API（コメントアウト、APIキー後で）
-        // const rakutenData = await fetchRakutenGoods(search || 'ガンプラ', page);
-        // setGoods(rakutenData.slice((page - 1) * limit, page * limit));
+        try {
+            // const data = await fetch('/data/goods.json').then(res => res.json());
+            // setGoods(data.filter((item: GoodsItem) => item.itemName.toLowerCase().includes(search.toLowerCase())).slice((page - 1) * limit, page * limit));
+            const rakutenData = await fetchRakutenGoods(search || 'ガンプラ', page);
+            setGoods(rakutenData.slice((page - 1) * limit, page * limit));
+        } catch (err) {
+            console.error('Fetch error:', err);
+            setGoods([]);
+        }
     }, 500);
 
     useEffect(() => {
-        console.log('Goods:', goods); // デバッグ用
+        console.log('Search:', search, 'Page:', page, 'Goods:', goods);
         fetchGoods();
-    }, [page, search, fetchGoods]); // fetchGoods追加
-
+    }, [page, search, fetchGoods, goods]); // goods追加
     return (
         <>
             <Head>
