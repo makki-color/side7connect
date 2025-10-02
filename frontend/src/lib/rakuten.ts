@@ -38,6 +38,7 @@ export async function fetchRakutenGoods(keyword: string, page: number = 1) {
         }
         if (!res.ok) throw new Error(`Rakuten API error: ${res.status}`);
         const data = await res.json();
+        console.log('Rakuten API response:', data); // デバッグ用
         const mappedData = data.Items.map((item: RakutenItem) => ({
             id: item.Item.itemCode,
             itemName: item.Item.itemName,

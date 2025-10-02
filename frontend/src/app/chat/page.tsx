@@ -1,50 +1,82 @@
-'use client';
-import Head from 'next/head';
-import { useState } from 'react';
+"use client";
+
+import { appFirebase, auth, db } from '@/lib/firebase'; // appFirebaseをインポート
+import { getAnalytics } from 'firebase/analytics';
+import { signInAnonymously } from 'firebase/auth';
+import { onValue, push, ref } from 'firebase/database';
+import { useEffect, useState } from 'react';
 
 export default function ChatPage() {
-    const [message, setMessage] = useState('');
+    const [messages, setMessages] = useState([]);
+    const [input, setInput] = useState('');
+    const [userName, setUserName] = useState('Guest');
+
+    useEffect(() => {
+        // Analyticsをクライアントサイドで初期化
+        let analytics = null;
+        if (typeof window !== 'undefined') {
+            analytics = getAnalytics(appFirebase);
+            console.log('Analytics initialized:', analytics);
+        }
+
+        signInAnonymously(auth).then(() => {
+            setUserName(localStorage.getItem('userName') || 'Guest');
+        }).catch((error) => {
+            console.error('Auth error:', error);
+        });
+        const messagesRef = ref(db, 'messages');
+        onValue(messagesRef, (snapshot) => {
+            const data = snapshot.val();
+            setMessages(data ? Object.values(data) : []);
+        }, (error) => {
+            console.error('Firebase error:', error);
+        });
+    }, []);
 
     const sendMessage = () => {
-        // Firebase後で
-        console.log('Message:', message);
-        setMessage('');
+        if (input.trim() && userName.trim()) {
+            push(ref(db, 'messages'), {
+                text: input,
+                userName: userName || 'Guest',
+                timestamp: Date.now(),
+            });
+            setInput('');
+        }
     };
 
     return (
-        <>
-            <Head>
-                <title>Side7Connect | ガンダムトーク</title>
-                <meta name="description" content="ガンダムファンとトーク！" />
-            </Head>
-            <div className="bg-blue-900 text-white min-h-screen p-4 bg-gradient-to-r from-blue-900 to-gray-800">
-                <h1 className="text-4xl font-bold mb-6 text-center drop-shadow-lg">ガンダムトーク</h1>
-                <div className="max-w-4xl mx-auto">
-                    <div className="h-96 bg-gray-800 p-4 rounded-lg mb-4">
-                        <p>チャットエリア（準備中）</p>
+        <div className="p-4 bg-gradient-to-r from-blue-800 to-red-600">
+            <input
+                type="text"
+                placeholder="ユーザー名"
+                value={userName}
+                onChange={(e) => {
+                    setUserName(e.target.value);
+                    localStorage.setItem('userName', e.target.value);
+                }}
+                className="border p-2 mb-2 text-black w-full"
+            />
+            <div className="mb-4 max-h-96 overflow-y-auto">
+                {messages.map((msg, i) => (
+                    <div key={i} className="flex items-center mb-2">
+                        <img src="/rx78.png" alt="RX-78" className="w-6 h-6 mr-2" />
+                        <p className="text-white">
+                            {msg.userName}: {msg.text} - {new Date(msg.timestamp).toLocaleTimeString()}
+                        </p>
                     </div>
-                    <div className="flex gap-2">
-                        <input
-                            type="text"
-                            value={message}
-                            onChange={(e) => setMessage(e.target.value)}
-                            placeholder="ユニコーン最高！"
-                            className="flex-1 p-2 text-black rounded-lg"
-                            tabIndex={0}
-                        />
-                        <button
-                            onClick={sendMessage}
-                            className="bg-red-600 hover:bg-red-700 p-2 rounded"
-                            tabIndex={0}
-                        >
-                            送信！
-                        </button>
-                    </div>
-                </div>
-                <footer className="text-center mt-6 text-sm text-gray-400">
-                    &copy; 2025 Side7Connect
-                </footer>
+                ))}
             </div>
-        </>
+            <div className="flex">
+                <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    className="border p-2 text-black flex-1"
+                />
+                <button onClick={sendMessage} className="ml-2 bg-blue-500 text-white p-2">
+                    Send
+                </button>
+            </div>
+        </div>
     );
 }

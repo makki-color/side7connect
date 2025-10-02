@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@dataconnect/generated": "file:src/dataconnect-generated",
     "firebase": "^12.3.0",
     "lodash": "^4.17.21",
     "lru-cache": "^11.2.2",
