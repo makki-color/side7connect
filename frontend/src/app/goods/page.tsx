@@ -1,113 +1,314 @@
 'use client';
-import { fetchRakutenGoods } from '@/lib/rakuten';
-import debounce from 'lodash/debounce';
-import Head from 'next/head';
+
+import { analytics, logEvent } from '@/lib/firebase';
+import { fetchRakutenGoods, GoodsItem } from '@/lib/rakuten';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
-interface GoodsItem {
-    id: string;
-    itemName: string;
-    itemPrice: number;
-    itemUrl: string;
-    imageUrl: string;
-}
 
 export default function GoodsPage() {
-    const [goods, setGoods] = useState<GoodsItem[]>([]);
+    const [items, setItems] = useState<GoodsItem[]>([]);
+    const [recommended, setRecommended] = useState<GoodsItem[]>([]);
+    const [keyword, setKeyword] = useState('');
+    const [category, setCategory] = useState('ガンプラ');
     const [page, setPage] = useState(1);
-    const [search, setSearch] = useState('');
-    const limit = typeof window !== 'undefined' && window.innerWidth < 640 ? 30 : 100;
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [recommendedError, setRecommendedError] = useState<string | null>(null);
+    const [useGenreId, setUseGenreId] = useState(false);
+    const [useAvailability, setUseAvailability] = useState(false);
 
-    const fetchGoods = debounce(async () => {
-        try {
-            // const data = await fetch('/data/goods.json').then(res => res.json());
-            // setGoods(data.filter((item: GoodsItem) => item.itemName.toLowerCase().includes(search.toLowerCase())).slice((page - 1) * limit, page * limit));
-            const rakutenData = await fetchRakutenGoods(search || 'ガンプラ', page);
-            setGoods(rakutenData.slice((page - 1) * limit, page * limit));
-        } catch (err) {
-            console.error('Fetch error:', err);
-            setGoods([]);
-        }
-    }, 500);
+    const categories = [
+        { name: 'ガンプラ', genreId: '201399', keyword: '' },
+        { name: 'フィギュア', genreId: '201399', keyword: '' },
+        { name: '書籍', genreId: '100040', keyword: '' },
+        { name: 'アパレル', genreId: '100371', keyword: '' },
+        { name: 'その他', genreId: '100000', keyword: '' },
+    ];
+
+    const selectedCategory = categories.find((cat) => cat.name === category);
+    const searchQuery = keyword.trim() || 'ガンプラ';
 
     useEffect(() => {
-        console.log('Search:', search, 'Page:', page, 'Goods:', goods);
-        fetchGoods();
-    }, [page, search, fetchGoods, goods]); // goods追加
+        async function loadRecommended() {
+            setLoading(true);
+            try {
+                const data = await fetchRakutenGoods('ガンプラ', 1, {
+                    genreId: undefined,
+                    sort: 'standard',
+                    availability: 0,
+                    category: 'ガンプラ',
+                });
+                console.log('Recommended API response:', data);
+                setRecommended(data.slice(0, 5));
+                console.log('Set recommended state:', data.slice(0, 5).length);
+                if (data.length === 0) {
+                    setRecommendedError('おすすめガンプラが見つかりませんでした。');
+                }
+            } catch (err: any) {
+                setRecommendedError('おすすめガンプラの取得に失敗しました。');
+                console.error('Recommended fetch error:', err);
+            } finally {
+                setLoading(false);
+            }
+        }
+        loadRecommended();
+    }, []);
+
+    const handleSearch = async () => {
+        if (searchQuery.length > 128) {
+            setError('キーワードが長すぎます。128文字以内で入力してください。');
+            setItems([]);
+            console.log('Search aborted: Keyword too long');
+            return;
+        }
+        if (searchQuery.length < 2) {
+            setError('キーワードを2文字以上入力してください（例：ガンプラ、RX-78）。');
+            setItems([]);
+            console.log('Search aborted: Keyword too short');
+            return;
+        }
+        setLoading(true);
+        setError(null);
+        setItems([]); // 検索前にリセット
+        try {
+            console.log('Search params:', { searchQuery, page, genreId: useGenreId ? selectedCategory?.genreId : null, availability: useAvailability ? 1 : 0 });
+            const data = await fetchRakutenGoods(searchQuery, page, {
+                genreId: useGenreId ? selectedCategory?.genreId : undefined,
+                availability: useAvailability ? 1 : 0,
+                category: selectedCategory?.name,
+            });
+            console.log('Rakuten API response:', data);
+            setItems(data);
+            console.log('Set items state:', data.length, 'Items:', data);
+            if (data.length === 0) {
+                setError(`「${searchQuery}」の検索結果が見つかりませんでした。別のキーワードを試してください（例：ガンプラ、RX-78、νガンダム）。`);
+            }
+            if (analytics) {
+                try {
+                    logEvent(analytics, 'search_goods', { category, searchQuery, page, useGenreId, useAvailability });
+                } catch (error) {
+                    console.warn('Failed to log search_goods event:', error);
+                }
+            }
+        } catch (err: any) {
+            const errorMessage =
+                err.message.includes('無効な楽天APIキー')
+                    ? '楽天APIキーの設定エラーです。管理者に連絡してください。'
+                    : err.message.includes('keyword is not valid') || err.message.includes('keyword must be under 128 length')
+                        ? 'キーワードが無効または長すぎます。128文字以内のキーワードを試してください（例：ガンプラ）。'
+                        : err.message.includes('genreId must be under 999999')
+                            ? 'ジャンル検索に失敗しました。キーワード検索のみで再試行してください。'
+                            : `検索エラー: ${err.message}`;
+            setError(errorMessage);
+            console.error('Goods fetch error:', err);
+            setItems([]);
+        } finally {
+            setLoading(false);
+            console.log('Search completed, loading:', false, 'items length:', items.length);
+        }
+    };
+
+    const handleItemClick = (item: GoodsItem) => {
+        if (analytics) {
+            try {
+                logEvent(analytics, 'goods_click', { itemName: item.itemName, category });
+            } catch (error) {
+                console.warn('Failed to log goods_click event:', error);
+            }
+        }
+    };
+
     return (
-        <>
-            <Head>
-                <title>Side7Connect | ガンプラ＆グッズ</title>
-                <meta name="description" content="最新ガンプラを最安値で！RX-78、ユニコーン、ザクIIをチェック！" />
-            </Head>
-            <div className="bg-blue-900 text-white min-h-screen p-4 bg-gradient-to-r from-blue-900 to-gray-800">
-                <div className="bg-gray-200 h-[90px] w-full max-w-[728px] mx-auto mb-4 text-center text-black">
-                    AdSense 728x90（仮）
-                </div>
-                <h1 className="text-4xl font-bold mb-6 text-center drop-shadow-lg">ガンプラ＆グッズ</h1>
+        <div className="container mx-auto p-4">
+            <h1 className="text-2xl font-bold mb-4">ガンダム商品検索</h1>
+            <div className="mb-2 flex gap-4">
+                <label>
+                    <input
+                        type="checkbox"
+                        checked={useGenreId}
+                        onChange={(e) => setUseGenreId(e.target.checked)}
+                    />
+                    <span className="ml-2">ジャンル検索を使用</span>
+                </label>
+                <label>
+                    <input
+                        type="checkbox"
+                        checked={useAvailability}
+                        onChange={(e) => setUseAvailability(e.target.checked)}
+                    />
+                    <span className="ml-2">在庫ありのみ</span>
+                </label>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 mb-4">
+                <select
+                    value={category}
+                    onChange={(e) => {
+                        setCategory(e.target.value);
+                        setPage(1);
+                        if (analytics) {
+                            try {
+                                logEvent(analytics, 'select_category', { category: e.target.value });
+                            } catch (error) {
+                                console.warn('Failed to log select_category event:', error);
+                            }
+                        }
+                    }}
+                    className="border p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 sm:w-32"
+                >
+                    {categories.map((cat) => (
+                        <option key={cat.name} value={cat.name}>
+                            {cat.name}
+                        </option>
+                    ))}
+                </select>
                 <input
                     type="text"
-                    placeholder="RGνガンダムをロックオン！"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full max-w-lg mx-auto p-3 mb-6 text-black rounded-lg border-2 border-white focus:outline-none focus:ring-2 focus:ring-red-600"
-                    tabIndex={0}
-                    aria-label="ガンプラを検索"
+                    value={keyword}
+                    onChange={(e) => {
+                        const input = e.target.value.slice(0, 120);
+                        setKeyword(input);
+                        setPage(1);
+                    }}
+                    placeholder="キーワードを入力（例：ガンプラ、RX-78、νガンダム）"
+                    className="border p-2 flex-1 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-                    {goods.length ? goods.map((item: GoodsItem) => (
-                        <div key={item.id} className="bg-gray-800 border-2 border-white rounded-lg p-4 hover:scale-105 transition-transform shadow-lg">
-                            <div className="relative">
-                                <Image
-                                    src={item.imageUrl}
-                                    alt={item.itemName}
-                                    width={200}
-                                    height={200}
-                                    loading="lazy"
-                                    className="w-full h-48 object-cover rounded"
-                                />
-                                <span className="absolute top-2 left-2 bg-green-600 text-white text-xs font-bold p-1 rounded">
-                                    ジオン兵#123推し！
-                                </span>
-                            </div>
-                            <h2 className="text-lg font-semibold mt-2">{item.itemName}</h2>
-                            <p className="text-red-400 font-medium">¥{item.itemPrice}</p>
-                            <a
-                                href={item.itemUrl}
-                                className="bg-red-600 hover:bg-red-700 p-2 rounded inline-block mt-2 w-full text-center"
-                                tabIndex={0}
-                            >
-                                購入！
-                            </a>
-                        </div>
-                    )) : (
-                        <p className="text-center text-xl">ザクの残骸しか見つからなかった…</p>
-                    )}
-                </div>
-                <div className="bg-gray-200 h-[250px] w-full max-w-[300px] mx-auto mt-6 text-center text-black">
-                    AdSense 300x250（仮）
-                </div>
-                <div className="flex justify-center gap-4 mt-6">
-                    <button
-                        onClick={() => setPage(page - 1)}
-                        disabled={page === 1}
-                        className="bg-gray-600 hover:bg-gray-700 p-3 rounded disabled:opacity-50"
-                        tabIndex={0}
-                    >
-                        前へ
-                    </button>
-                    <button
-                        onClick={() => setPage(page + 1)}
-                        className="bg-red-600 hover:bg-red-700 p-3 rounded"
-                        tabIndex={0}
-                    >
-                        コロニー移動！
-                    </button>
-                </div>
-                <footer className="text-center mt-6 text-sm text-gray-400">
-                    Images by Freepik | &copy; 2025 Side7Connect
-                </footer>
+                <button
+                    onClick={handleSearch}
+                    disabled={loading}
+                    className="px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50 hover:bg-blue-600"
+                >
+                    {loading ? '検索中...' : '検索'}
+                </button>
             </div>
-        </>
+            {error && <p className="text-red-500 mb-4">{error}</p>}
+            {loading && <p className="text-gray-500">読み込み中...</p>}
+
+            {/* おすすめガンプラ */}
+            {recommendedError && <p className="text-red-500 mb-4">{recommendedError}</p>}
+            {recommended.length > 0 && (
+                <div className="mt-8">
+                    <h2 className="text-xl font-bold mb-4">おすすめガンプラ</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                        {recommended.map((item, index) => (
+                            <div key={`${item.id}-${index}`} className="border p-4 rounded shadow hover:shadow-lg transition-shadow">
+                                <Image
+                                    src={item.imageUrl || '/placeholder.png'}
+                                    alt={item.itemName}
+                                    width={300}
+                                    height={300}
+                                    loading="lazy"
+                                    quality={75}
+                                    sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
+                                    className="w-full h-48 object-cover rounded"
+                                    onError={(e) => {
+                                        e.currentTarget.src = '/placeholder.png';
+                                    }}
+                                />
+                                <div className="flex items-center gap-2 mt-2">
+                                    <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">ガンプラ</span>
+                                    <p className="font-semibold line-clamp-2">{item.itemName}</p>
+                                </div>
+                                <p className="font-bold text-lg">{item.itemPrice.toLocaleString()}円</p>
+                                {item.reviewAverage && (
+                                    <p className="text-sm text-yellow-500">
+                                        ★ {item.reviewAverage.toFixed(1)} ({item.reviewCount || 0}件)
+                                    </p>
+                                )}
+                                <a
+                                    href={item.itemUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={() => handleItemClick(item)}
+                                    className="text-blue-500 hover:underline block mt-2"
+                                >
+                                    詳細を見る →
+                                </a>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* 検索結果 */}
+            {items.length > 0 ? (
+                <div className="mt-8">
+                    <h2 className="text-xl font-bold mb-4">検索結果（{items.length}件）</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                        {items.map((item, index) => (
+                            <div key={`${item.id}-${index}`} className="border p-4 rounded shadow hover:shadow-lg transition-shadow">
+                                <Image
+                                    src={item.imageUrl || '/placeholder.png'}
+                                    alt={item.itemName}
+                                    width={300}
+                                    height={300}
+                                    loading="lazy"
+                                    quality={90}
+                                    sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
+                                    className="w-full h-48 object-cover rounded"
+                                    onError={(e) => {
+                                        e.currentTarget.src = '/placeholder.png';
+                                    }}
+                                />
+                                <div className="flex items-center gap-2 mt-2">
+                                    <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">{category}</span>
+                                    <p className="font-semibold line-clamp-2">{item.itemName}</p>
+                                </div>
+                                <p className="font-bold text-lg">{item.itemPrice.toLocaleString()}円</p>
+                                {item.reviewAverage && (
+                                    <p className="text-sm text-yellow-500">
+                                        ★ {item.reviewAverage.toFixed(1)} ({item.reviewCount || 0}件)
+                                    </p>
+                                )}
+                                <a
+                                    href={item.itemUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={() => handleItemClick(item)}
+                                    className="text-blue-500 hover:underline block mt-2"
+                                >
+                                    詳細を見る →
+                                </a>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ) : (
+                !loading && !error && recommended.length === 0 && <p className="text-gray-500 mt-8">検索ボタンを押してガンダムグッズを探してください！</p>
+            )}
+
+            {/* ページネーション */}
+            {items.length > 0 && (
+                <div className="mt-4 flex justify-center gap-4">
+                    <button
+                        onClick={() => {
+                            setPage((prev) => Math.max(prev - 1, 1));
+                            handleSearch();
+                        }}
+                        disabled={page === 1 || loading}
+                        className="px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50 hover:bg-blue-600"
+                    >
+                        前のページ
+                    </button>
+                    <span>ページ {page}</span>
+                    <button
+                        onClick={() => {
+                            setPage((prev) => prev + 1);
+                            handleSearch();
+                        }}
+                        disabled={items.length < 30 || loading}
+                        className="px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50 hover:bg-blue-600"
+                    >
+                        次のページ
+                    </button>
+                </div>
+            )}
+
+            {/* 広告スペース */}
+            <div className="mt-8 hidden md:block">
+                <div className="w-[300px] h-[250px] bg-gray-200 text-center flex items-center justify-center sticky top-4">
+                    広告 (300x250)
+                </div>
+            </div>
+        </div>
     );
 }

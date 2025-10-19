@@ -1,72 +1,106 @@
-    A Next.js-based web application with Firebase Realtime Database for real-time chat, goods, and news features, themed around Gundam.
+Side7Connect
+ **Side7Connect**は、ガンダムをテーマにしたウェブアプリです。チャットで仲間と話したり、ガンプラを検索したり、最新ニュースをチェックしたりできます！Next.jsというツールとFirebaseというデータベースを使って作られています。
 
-    ## Features
-    - **Chat**: Real-time messaging with anonymous login, displaying Gundam-themed images (`/rx78.png`).
-    - **Goods**: Placeholder page for e-commerce integration (TBD).
-    - **News**: Placeholder page for news updates (TBD).
-    - **Analytics**: Firebase Analytics for user tracking (optional, AdSense preparation).
+ ## どんな機能があるの？
+ - **チャット**：ユーザー名を入力せずに（匿名で）リアルタイムで会話できます。ガンダムの画像（RX-78）が表示されます。
+ - **グッズ**：楽天APIを使ってガンプラを検索。ページをめくってたくさんの商品を見れます。広告スペース（AdSense）も準備済み。
+ - **ニュース**：ガンダムの最新ニュースをRSSという仕組みで表示。
+ - **アクセス解析**：どのページが人気か調べる準備（Firebase Analytics）ができています。
 
-    ## Setup
-    1. Clone the repository:
-       ```bash
-       git clone <repository-url>
-       cd frontend
-       ```
-    2. Install dependencies:
-       ```bash
-       npm install
-       ```
-    3. Configure environment variables in `.env.local`:
-       ```
-       NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
-       NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-auth-domain
-       NEXT_PUBLIC_FIREBASE_DATABASE_URL=your-database-url
-       NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
-       NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-storage-bucket
-       NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
-       NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
-       NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=your-measurement-id
-       ```
-    4. Run the development server:
-       ```bash
-       npm run dev
-       ```
-    5. Access at `http://localhost:3000`.
+ ## アプリの動かし方
+ 1. **プロジェクトをコピー**：
+    - GitHubからコードをダウンロードします。
+    ```bash
+    git clone <リポジトリのURL>
+    cd frontend
+    ```
+ 2. **必要なツールをインストール**：
+    - アプリを動かすための部品を追加します。
+    ```bash
+    npm install
+    ```
+ 3. **設定ファイルを作る**：
+    - `.env.local`というファイルに、Firebaseと楽天APIの設定を書き込みます。例：
+    ```
+    NEXT_PUBLIC_FIREBASE_API_KEY=あなたのAPIキー
+    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=あなたの認証ドメイン
+    NEXT_PUBLIC_FIREBASE_DATABASE_URL=あなたのデータベースURL
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID=あなたのプロジェクトID
+    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=あなたのストレージバケット
+    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=あなたの送信者ID
+    NEXT_PUBLIC_FIREBASE_APP_ID=あなたのアプリID
+    NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=あなたの測定ID
+    NEXT_PUBLIC_RAKUTEN_API_KEY=あなたの楽天APIキー
+    ```
+    - これらはFirebaseや楽天の管理画面で確認できます。
+ 4. **アプリを起動**：
+    - 次のコマンドでアプリを動かします。
+    ```bash
+    npm run dev
+    ```
+ 5. **ブラウザで確認**：
+    - ブラウザで`http://localhost:3000`を開きます。以下を試してみて！
+      - `/chat`：チャットで会話。
+      - `/goods`：ガンプラを検索。
+      - `/news`：ニュースをチェック。
 
-    ## Project Structure
-    - `app/`: Next.js App Router pages (`chat`, `goods`, `news`).
-    - `src/lib/`: Firebase configuration (`firebase.ts`).
-    - `public/`: Static assets (`rx78.png`).
-    - `.env.local`: Environment variables for Firebase.
+ ## プロジェクトのフォルダ構成
+ - `src/app/`：ウェブページのコード（`chat`, `goods`, `news`）。
+ - `src/lib/`：Firebase（`firebase.ts`）、楽天API（`rakuten.ts`）、ニュース取得（`rss.ts`）の設定。
+ - `public/`：画像ファイル（例：`rx78.png`）。
+ - `.env.local`：秘密の設定（APIキーなど）。
 
-    ## Changelog
-    ### 2025-10-02
-    - **Fixed**: Firebase `auth/configuration-not-found` error.
-      - **Cause**: Incorrect or missing `authDomain` in `.env.local`, SSR/CSR timing issue.
-      - **Solution**: Validated environment variables, moved `signInAnonymously` to client-side (`typeof window !== 'undefined'` in `app/chat/page.tsx`).
-    - **Fixed**: Next.js 15.5.3 stale version warning.
-      - **Cause**: Outdated Next.js version causing compatibility issues with Firebase 12.3.0.
-      - **Solution**: Updated to Next.js 15.0.3 (`npm install next@15.0.3`).
-    - **Fixed**: Turbopack WASM bindings warnings.
-      - **Cause**: Experimental Turbopack instability in Windows environment.
-      - **Solution**: Disabled Turbopack (`"dev": "next dev"` in `package.json`, removed `experimental.turbopack` from `next.config.js`).
-    - **Milestone**: Achieved 10/1 target (real-time chat with anonymous login, 500ms update, Gundam-themed UI).
+ ## これまでの進捗（2025年10月2日時点）
+ - **チャット機能**：
+   - リアルタイムでメッセージを送受信（0.5秒以内に更新）。
+   - 匿名ログインで誰でもすぐ使えます。
+   - ガンダムの画像（RX-78）を表示。
+ - **グッズ機能**：
+   - 楽天APIでガンプラ検索（例：「RGνガンダム」）。
+   - ページめくり機能（スマホは30件、PCは100件表示）。
+   - 広告スペース（728x90、300x250）を準備。
+ - **ニュース機能**：
+   - ガンダムの最新ニュースを表示（タイトル、日付、内容、リンク）。
+ - **アクセス解析**：
+   - Firebase Analyticsをセットアップ済み。人気ページを調べる準備OK。
+ - **マイルストーン**：
+   - 10月1日の目標（チャット、グッズ、ニュース機能の実装）を達成！
+   - 次は：アプリを公開（Vercel）、アクセス解析の強化、パフォーマンス改善。
 
-    ### 2025-09-30
-    - **Fixed**: `app` import error in `app/chat/page.tsx`.
-      - **Cause**: `src/lib/firebase.ts` did not export `app` from `initializeApp`.
-      - **Solution**: Added `export const appFirebase = app` in `src/lib/firebase.ts`.
-    - **Fixed**: Firebase Analytics `getOrCreateDataLayer` error.
-      - **Cause**: `getAnalytics` called in SSR, `window` undefined.
-      - **Solution**: Moved `getAnalytics` to client-side in `app/chat/page.tsx` with `typeof window !== 'undefined'`.
-    - **Fixed**: `useEffect` in non-Client Component error.
-      - **Cause**: Missing `"use client"` directive in `app/chat/page.tsx`.
-      - **Solution**: Added `"use client"` to file.
-    - **Fixed**: `Couldn't find any pages or app directory` error.
-      - **Cause**: Ran `npm run dev` in wrong directory (`C:\side7connect` instead of `C:\side7connect\frontend`).
-      - **Solution**: Moved to `C:\side7connect\frontend`, ensured `app/chat/page.tsx` exists.
+ ## これまで直した問題
+ ### 2025年10月2日
+ - **グッズとニュースを追加**：
+   - グッズページ：楽天APIでガンプラ検索、ページめくり、広告スペースを追加。
+   - ニュースページ：RSSで最新ガンダムニュースを表示。
+ - **フォルダの混乱を解決**：
+   - 問題：チャットページが`src/app/chat`にあるのが正しいのに、別の場所（`app/chat`）にすべきと間違えた。
+   - 解決：`src/app/chat`が正しいと確認し、説明を修正。
+ - **ログインエラーを修正**：
+   - 問題：Firebaseのログイン設定（`auth/configuration-not-found`）が間違っていた。
+   - 解決：`.env.local`の設定を正しくし、ログイン処理をブラウザ側だけで実行。
+ - **古いツールを更新**：
+   - 問題：Next.jsが古い（15.5.3）で動かないことがあった。
+   - 解決：新しいバージョン（15.0.3）に更新。
+ - **不安定なツールを停止**：
+   - 問題：TurbopackというツールがWindowsでエラーを出した。
+   - 解決：Turbopackをオフにして安定動作。
 
-    ## Next Steps
-    - Implement `goods` and `news` pages (`app/goods/page.tsx`, `app/news/page.tsx`).
-    - Deploy to Vercel with environment variables.
-    - Enhance Firebase Analytics for AdSense integration.
+ ### 2025年9月30日
+ - **設定ファイルのエラー修正**：
+   - 問題：チャットページでFirebaseの設定（`app`）が読み込めなかった。
+   - 解決：`src/lib/firebase.ts`に正しい設定を追加。
+ - **アクセス解析のエラー修正**：
+   - 問題：アクセス解析がサーバー側で動いてエラー（`window`がない）。
+   - 解決：ブラウザ側だけで動くように修正。
+ - **コードの書き方エラー修正**：
+   - 問題：チャットページに`"use client"`がなく、エラーが出た。
+   - 解決：`"use client"`を追加。
+ - **フォルダ間違いを修正**：
+   - 問題：間違ったフォルダ（`C:\side7connect`）でコマンドを実行。
+   - 解決：正しいフォルダ（`C:\side7connect\frontend`）で実行。
+
+ ## これからの予定
+ - **アプリを公開**：Vercelというサービスでアプリをネットに公開。
+ - **アクセス解析を強化**：どのページが人気か、どんな検索が多いかを詳しく調べる。
+ - **スピードアップ**：アプリを早く、快適にする（例：画像読み込みの改善、APIの効率化）。
+ - **デザインの再検討**：使いやすさや見た目をさらに良くする（例：スマホ対応、通知機能）。

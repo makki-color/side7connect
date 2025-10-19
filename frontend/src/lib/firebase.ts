@@ -1,6 +1,5 @@
+import { getAnalytics, logEvent } from 'firebase/analytics';
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getDatabase } from 'firebase/database';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -13,7 +12,23 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-const app = initializeApp(firebaseConfig);
-export const db = getDatabase(app);
-export const auth = getAuth(app);
-export const appFirebase = app; // appをエクスポート（appFirebaseで命名衝突回避）
+// 環境変数が全て揃っているかチェック
+const isConfigValid = Object.values(firebaseConfig).every((value) => value);
+
+// Firebaseアプリを初期化
+let app;
+if (isConfigValid) {
+    try {
+        app = initializeApp(firebaseConfig);
+        console.log('Firebase initialized successfully');
+    } catch (error) {
+        console.error('Firebase initialization failed:', error);
+    }
+} else {
+    console.error('Firebase config is incomplete. Check .env.local settings.');
+}
+
+// Analyticsを初期化（クライアントサイドのみ）
+const analytics = typeof window !== 'undefined' && app ? getAnalytics(app) : null;
+
+export { analytics, logEvent };
