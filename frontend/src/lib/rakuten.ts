@@ -101,3 +101,12 @@ export async function fetchRakutenGoods(keyword: string, page: number, params: S
         throw error;
     }
 }
+
+export async function fetchGenreList() {
+    const apiKey = process.env.NEXT_PUBLIC_RAKUTEN_API_KEY;
+    const url = `https://app.rakuten.co.jp/services/api/IchibaGenre/Search/20140222?applicationId=${apiKey}&genreId=0`;
+    const res = await fetch(url);
+    const data = await res.json();
+    console.log('Genre list:', data);
+    return data;
+}
